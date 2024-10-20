@@ -209,7 +209,7 @@
             });
 
             // Store event in the room store
-            storeEvent(currentUser.id, now, x, y);
+            storeEvent(currentUser.id, now, x, y, currentUser.avatarUrl);
         }
 
         function createAvatarIcon(x, y, user, timestamp) {
@@ -228,13 +228,13 @@
         }
 
         // Store event in the room store
-        function storeEvent(userId, timestamp, x, y) {
+        function storeEvent(userId, timestamp, x, y, avatarUrl) {
             room.store.update({
                 id: "touchEvents",
-                dependencies: { userId, timestamp, x, y, EVENT_RETENTION_PERIOD },
+                dependencies: { userId, timestamp, x, y, avatarUrl, EVENT_RETENTION_PERIOD },
                 updateFunction: (events) => {
                     if (!events) events = [];
-                    events.push({ userId, timestamp, x, y });
+                    events.push({ userId, timestamp, x, y, avatarUrl });
                     // Keep only events from the last 24 hours
                     const cutoffTime = Date.now() - EVENT_RETENTION_PERIOD;
                     events = events.filter(event => event.timestamp > cutoffTime);
@@ -249,10 +249,11 @@
                 if (events) {
                     touchArea.innerHTML = ''; // Clear existing icons
                     events.forEach(event => {
-                        const user = touchEvents[event.userId];
-                        if (user) {
-                            createAvatarIcon(event.x, event.y, user, event.timestamp);
-                        }
+                        createAvatarIcon(event.x, event.y, {
+                            username: touchEvents[event.userId]?.username || 'Unknown',
+                            avatarUrl: event.avatarUrl,
+                            isBot: touchEvents[event.userId]?.isBot || false
+                        }, event.timestamp);
                     });
                 }
             });
@@ -276,7 +277,7 @@
                 detectBot(touchEvents[userId]);
                 updateUserList();
                 createAvatarIcon(x, y, touchEvents[userId], timestamp);
-                storeEvent(userId, timestamp, x, y);
+                storeEvent(userId, timestamp, x, y, avatarUrl);
             }
         };
 

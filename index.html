@@ -89,6 +89,10 @@
             margin-top: 20px;
         }
     </style>
+    <!-- Moment.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <!-- Chart.js Adapter for Moment.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0/dist/chartjs-adapter-moment.min.js"></script>
     <!-- Chart.js Library -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <!-- Chart.js Streaming Plugin -->
@@ -161,7 +165,7 @@
                         delay: 1000,
                         onRefresh: chart => {
                             chart.data.datasets[0].data.push({
-                                x: Date.now(),
+                                x: moment(),
                                 y: currentUser.touchCount || 0
                             });
                             currentUser.touchCount = 0;
@@ -180,7 +184,7 @@
                             delay: 1000,
                             onRefresh: function(chart) {
                                 chart.data.datasets[0].data.push({
-                                    x: Date.now(),
+                                    x: moment(),
                                     y: currentUser.touchCount || 0
                                 });
                                 currentUser.touchCount = 0;

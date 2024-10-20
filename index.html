@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<html><head><base href="https://example.com"></head><body><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -66,20 +66,39 @@
             background-color: #e0e0e0;
             border: 3px dashed #999;
             border-radius: 15px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             position: relative;
+            overflow: hidden;
         }
         #touch-area:active {
             background-color: #d0d0d0;
         }
-        #status {
+        .avatar-icon {
             position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 14px;
-            color: #555;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+        }
+        .avatar-icon:hover {
+            transform: scale(1.2);
+            z-index: 10;
+        }
+        .avatar-tooltip {
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .avatar-icon:hover .avatar-tooltip {
+            opacity: 1;
         }
     </style>
 </head>
@@ -89,9 +108,7 @@
         <div id="users"></div>
     </div>
     <div id="main">
-        <div id="touch-area">
-            <div id="status">Touch the area to send events.</div>
-        </div>
+        <div id="touch-area"></div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/websimsocket/dist/websimsocket.min.js"></script>
@@ -100,12 +117,11 @@
 
         const usersDiv = document.getElementById('users');
         const touchArea = document.getElementById('touch-area');
-        const statusDiv = document.getElementById('status');
 
         // Store user touch events
         const touchEvents = {};
         const BOT_THRESHOLD = 21; // Max touches per minute
-        const BOT_TIME_WINDOW = 1000; // 60 seconds
+        const BOT_TIME_WINDOW = 60000; // 60 seconds
 
         // Initialize current user
         const currentUser = {
@@ -165,31 +181,58 @@
         }
 
         // Handle touch events
-        function handleTouch() {
+        function handleTouch(x, y) {
             const now = Date.now();
             currentUser.touchTimestamps.push(now);
             detectBot(currentUser);
             updateUserList();
+
+            // Create avatar icon
+            createAvatarIcon(x, y, currentUser, now);
 
             // Send touch event to peers
             room.send({
                 type: "touchEvent",
                 timestamp: now,
                 userId: currentUser.id,
-                username: currentUser.username
+                username: currentUser.username,
+                avatarUrl: currentUser.avatarUrl,
+                x: x,
+                y: y
             });
+        }
+
+        function createAvatarIcon(x, y, user, timestamp) {
+            const avatarIcon = document.createElement('div');
+            avatarIcon.classList.add('avatar-icon');
+            avatarIcon.style.left = `${x}px`;
+            avatarIcon.style.top = `${y}px`;
+            avatarIcon.style.backgroundImage = `url(${user.avatarUrl})`;
+            avatarIcon.style.backgroundSize = 'cover';
+
+            const tooltip = document.createElement('div');
+            tooltip.classList.add('avatar-tooltip');
+            tooltip.textContent = `${user.username} - ${new Date(timestamp).toLocaleString()} - ${user.isBot ? 'Bot' : 'Human'}`;
+
+            avatarIcon.appendChild(tooltip);
+            touchArea.appendChild(avatarIcon);
+
+            // Remove icon after 5 seconds
+            setTimeout(() => {
+                touchArea.removeChild(avatarIcon);
+            }, 5000);
         }
 
         // Handle incoming messages
         room.onmessage = (event) => {
             const data = event.data;
             if (data.type === "touchEvent") {
-                const { timestamp, userId, username } = data;
+                const { timestamp, userId, username, avatarUrl, x, y } = data;
                 if (!touchEvents[userId]) {
                     touchEvents[userId] = {
                         id: userId,
                         username: username,
-                        avatarUrl: "", // Could be set if available
+                        avatarUrl: avatarUrl,
                         isBot: false,
                         touchTimestamps: []
                     };
@@ -197,6 +240,7 @@
                 touchEvents[userId].touchTimestamps.push(timestamp);
                 detectBot(touchEvents[userId]);
                 updateUserList();
+                createAvatarIcon(x, y, touchEvents[userId], timestamp);
             }
         };
 
@@ -229,11 +273,14 @@
         // Touch event listeners
         touchArea.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            handleTouch();
+            const touch = e.touches[0];
+            const rect = touchArea.getBoundingClientRect();
+            handleTouch(touch.clientX - rect.left, touch.clientY - rect.top);
         });
         touchArea.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            handleTouch();
+            const rect = touchArea.getBoundingClientRect();
+            handleTouch(e.clientX - rect.left, e.clientY - rect.top);
         });
 
         // Sync store on new connection
@@ -256,3 +303,4 @@
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>
 </html>
+</body></html>

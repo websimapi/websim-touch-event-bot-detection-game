@@ -59,13 +59,13 @@
             align-items: center;
             touch-action: none;
             user-select: none;
+            overflow: hidden;
         }
         #touch-area {
-            width: 80%;
-            height: 80%;
+            width: 100%;
+            height: 100%;
             background-color: #e0e0e0;
             border: 3px dashed #999;
-            border-radius: 15px;
             position: relative;
             overflow: hidden;
         }
@@ -80,6 +80,8 @@
             border: 2px solid #fff;
             box-shadow: 0 0 5px rgba(0,0,0,0.3);
             transition: transform 0.3s ease;
+            background-size: cover;
+            background-position: center;
         }
         .avatar-icon:hover {
             transform: scale(1.2);
@@ -96,6 +98,10 @@
             pointer-events: none;
             opacity: 0;
             transition: opacity 0.3s ease;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 5px;
         }
         .avatar-icon:hover .avatar-tooltip {
             opacity: 1;
@@ -122,6 +128,7 @@
         const touchEvents = {};
         const BOT_THRESHOLD = 21; // Max touches per minute
         const BOT_TIME_WINDOW = 60000; // 60 seconds
+        const EVENT_RETENTION_PERIOD = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
         // Initialize current user
         const currentUser = {
@@ -200,6 +207,9 @@
                 x: x,
                 y: y
             });
+
+            // Store event in the room store
+            storeEvent(currentUser.id, now, x, y);
         }
 
         function createAvatarIcon(x, y, user, timestamp) {
@@ -208,7 +218,6 @@
             avatarIcon.style.left = `${x}px`;
             avatarIcon.style.top = `${y}px`;
             avatarIcon.style.backgroundImage = `url(${user.avatarUrl})`;
-            avatarIcon.style.backgroundSize = 'cover';
 
             const tooltip = document.createElement('div');
             tooltip.classList.add('avatar-tooltip');
@@ -216,11 +225,37 @@
 
             avatarIcon.appendChild(tooltip);
             touchArea.appendChild(avatarIcon);
+        }
 
-            // Remove icon after 5 seconds
-            setTimeout(() => {
-                touchArea.removeChild(avatarIcon);
-            }, 5000);
+        // Store event in the room store
+        function storeEvent(userId, timestamp, x, y) {
+            room.store.update({
+                id: "touchEvents",
+                dependencies: { userId, timestamp, x, y },
+                updateFunction: (events) => {
+                    if (!events) events = [];
+                    events.push({ userId, timestamp, x, y });
+                    // Keep only events from the last 24 hours
+                    const cutoffTime = Date.now() - EVENT_RETENTION_PERIOD;
+                    events = events.filter(event => event.timestamp > cutoffTime);
+                    return events;
+                }
+            });
+        }
+
+        // Render stored events
+        function renderStoredEvents() {
+            room.store.get("touchEvents").then(events => {
+                if (events) {
+                    touchArea.innerHTML = ''; // Clear existing icons
+                    events.forEach(event => {
+                        const user = touchEvents[event.userId];
+                        if (user) {
+                            createAvatarIcon(event.x, event.y, user, event.timestamp);
+                        }
+                    });
+                }
+            });
         }
 
         // Handle incoming messages
@@ -241,6 +276,7 @@
                 detectBot(touchEvents[userId]);
                 updateUserList();
                 createAvatarIcon(x, y, touchEvents[userId], timestamp);
+                storeEvent(userId, timestamp, x, y);
             }
         };
 
@@ -286,11 +322,13 @@
         // Sync store on new connection
         room.onConnected = () => {
             room.store.getAll().then(store => {
-                // Here you can sync store data if needed
+                if (store.touchEvents) {
+                    renderStoredEvents();
+                }
             });
         };
 
-        // Periodically check for bot status
+        // Periodically check for bot status and render stored events
         setInterval(() => {
             detectBot(currentUser);
             updateUserList();
@@ -298,7 +336,37 @@
                 detectBot(touchEvents[clientId]);
             }
             updateUserList();
+            renderStoredEvents();
         }, 5000);
+
+        // Paging system
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        touchArea.addEventListener('mousemove', (e) => {
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            updateVisibleEvents();
+        });
+
+        function updateVisibleEvents() {
+            const icons = touchArea.querySelectorAll('.avatar-icon');
+            icons.forEach(icon => {
+                const rect = icon.getBoundingClientRect();
+                const distance = Math.sqrt(
+                    Math.pow(rect.left + rect.width / 2 - lastMouseX, 2) +
+                    Math.pow(rect.top + rect.height / 2 - lastMouseY, 2)
+                );
+                if (distance < 200) {
+                    icon.style.display = 'block';
+                } else {
+                    icon.style.display = 'none';
+                }
+            });
+        }
+
+        // Initial render of stored events
+        renderStoredEvents();
     </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>

@@ -231,7 +231,7 @@
         function storeEvent(userId, timestamp, x, y) {
             room.store.update({
                 id: "touchEvents",
-                dependencies: { userId, timestamp, x, y },
+                dependencies: { userId, timestamp, x, y, EVENT_RETENTION_PERIOD },
                 updateFunction: (events) => {
                     if (!events) events = [];
                     events.push({ userId, timestamp, x, y });

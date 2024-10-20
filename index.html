@@ -255,6 +255,45 @@
                             isBot: touchEvents[event.userId]?.isBot || false
                         }, event.timestamp);
                     });
+
+                    // Only activate paging if there are more than 100 events
+                    if (events.length > 100) {
+                        updateVisibleEvents();
+                    } else {
+                        // Show all events if there are 100 or fewer
+                        const icons = touchArea.querySelectorAll('.avatar-icon');
+                        icons.forEach(icon => {
+                            icon.style.display = 'block';
+                        });
+                    }
+                }
+            });
+        }
+
+        // Update visible events
+        function updateVisibleEvents() {
+            const icons = Array.from(touchArea.querySelectorAll('.avatar-icon'));
+            if (icons.length <= 100) {
+                icons.forEach(icon => icon.style.display = 'block');
+                return;
+            }
+
+            // Calculate distances and sort
+            const iconDistances = icons.map(icon => {
+                const rect = icon.getBoundingClientRect();
+                const distance = Math.sqrt(
+                    Math.pow(rect.left + rect.width / 2 - lastMouseX, 2) +
+                    Math.pow(rect.top + rect.height / 2 - lastMouseY, 2)
+                );
+                return { icon, distance };
+            }).sort((a, b) => a.distance - b.distance);
+
+            // Show the closest 100 icons
+            iconDistances.forEach((item, index) => {
+                if (index < 100) {
+                    item.icon.style.display = 'block';
+                } else {
+                    item.icon.style.display = 'none';
                 }
             });
         }
@@ -347,24 +386,11 @@
         touchArea.addEventListener('mousemove', (e) => {
             lastMouseX = e.clientX;
             lastMouseY = e.clientY;
-            updateVisibleEvents();
-        });
-
-        function updateVisibleEvents() {
             const icons = touchArea.querySelectorAll('.avatar-icon');
-            icons.forEach(icon => {
-                const rect = icon.getBoundingClientRect();
-                const distance = Math.sqrt(
-                    Math.pow(rect.left + rect.width / 2 - lastMouseX, 2) +
-                    Math.pow(rect.top + rect.height / 2 - lastMouseY, 2)
-                );
-                if (distance < 200) {
-                    icon.style.display = 'block';
-                } else {
-                    icon.style.display = 'none';
-                }
-            });
-        }
+            if (icons.length > 100) {
+                updateVisibleEvents();
+            }
+        });
 
         // Initial render of stored events
         renderStoredEvents();

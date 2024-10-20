@@ -59,7 +59,6 @@
             align-items: center;
             touch-action: none;
             user-select: none;
-            position: relative;
         }
         #touch-area {
             width: 80%;
@@ -68,7 +67,6 @@
             border: 3px dashed #999;
             border-radius: 15px;
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
             position: relative;
@@ -83,20 +81,7 @@
             font-size: 14px;
             color: #555;
         }
-        #chart-container {
-            width: 90%;
-            height: 40%;
-            margin-top: 20px;
-        }
     </style>
-    <!-- Moment.js Library -->
-    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
-    <!-- Chart.js Adapter for Moment.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-moment@1.0.0/dist/chartjs-adapter-moment.min.js"></script>
-    <!-- Chart.js Library -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <!-- Chart.js Streaming Plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-streaming@2.0.0/dist/chartjs-plugin-streaming.min.js"></script>
 </head>
 <body>
     <div id="sidebar">
@@ -106,29 +91,21 @@
     <div id="main">
         <div id="touch-area">
             <div id="status">Touch the area to send events.</div>
-            <div id="chart-container">
-                <canvas id="touchChart"></canvas>
-            </div>
         </div>
     </div>
 
-    <!-- WebsimSocket Library -->
     <script src="https://cdn.jsdelivr.net/npm/websimsocket/dist/websimsocket.min.js"></script>
     <script>
-        // Register the streaming plugin with Chart.js
-        Chart.register(ChartStreaming);
-
         const room = new WebsimSocket();
 
         const usersDiv = document.getElementById('users');
         const touchArea = document.getElementById('touch-area');
         const statusDiv = document.getElementById('status');
-        const ctx = document.getElementById('touchChart').getContext('2d');
 
         // Store user touch events
         const touchEvents = {};
-        const BOT_THRESHOLD = 21; // Max touches per second
-        const BOT_TIME_WINDOW = 1000; // 1 second
+        const BOT_THRESHOLD = 21; // Max touches per minute
+        const BOT_TIME_WINDOW = 1000; // 60 seconds
 
         // Initialize current user
         const currentUser = {
@@ -136,103 +113,42 @@
             username: room.party.client.username,
             avatarUrl: room.party.client.avatarUrl,
             isBot: false,
-            touchTimestamps: [],
-            touchCount: 0
+            touchTimestamps: []
         };
         touchEvents[currentUser.id] = currentUser;
-
-        // Initialize chart data
-        const chartData = {
-            datasets: [{
-                label: 'Touches per Second',
-                borderColor: 'blue',
-                backgroundColor: 'rgba(0, 0, 255, 0.1)',
-                fill: true,
-                tension: 0.4,
-                data: []
-            }]
-        };
-
-        const touchChart = new Chart(ctx, {
-            type: 'line',
-            data: chartData,
-            options: {
-                animation: false,
-                plugins: {
-                    streaming: {
-                        duration: 20000,
-                        refresh: 1000,
-                        delay: 1000,
-                        onRefresh: chart => {
-                            chart.data.datasets[0].data.push({
-                                x: moment(),
-                                y: currentUser.touchCount || 0
-                            });
-                            currentUser.touchCount = 0;
-                        }
-                    },
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    x: {
-                        type: 'realtime',
-                        realtime: {
-                            duration: 20000,
-                            refresh: 1000,
-                            delay: 1000,
-                            onRefresh: function(chart) {
-                                chart.data.datasets[0].data.push({
-                                    x: moment(),
-                                    y: currentUser.touchCount || 0
-                                });
-                                currentUser.touchCount = 0;
-                            }
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        suggestedMax: BOT_THRESHOLD + 10
-                    }
-                }
-            }
-        });
 
         // Update user list UI
         function updateUserList() {
             usersDiv.innerHTML = '';
             for (const clientId in room.party.peers) {
                 const user = touchEvents[clientId];
-                if (user) {
-                    const userDiv = document.createElement('div');
-                    userDiv.classList.add('user');
-                    userDiv.classList.add(user.isBot ? 'red' : 'green');
-
-                    const indicator = document.createElement('div');
-                    indicator.classList.add('indicator');
-                    userDiv.appendChild(indicator);
-
-                    const nameSpan = document.createElement('span');
-                    nameSpan.textContent = user.username;
-                    userDiv.appendChild(nameSpan);
-
-                    usersDiv.appendChild(userDiv);
-                }
+                const userDiv = document.createElement('div');
+                userDiv.classList.add('user');
+                userDiv.classList.add(user.isBot ? 'red' : 'green');
+                
+                const indicator = document.createElement('div');
+                indicator.classList.add('indicator');
+                userDiv.appendChild(indicator);
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = user.username;
+                userDiv.appendChild(nameSpan);
+                
+                usersDiv.appendChild(userDiv);
             }
             // Include current user
             const currentUserDiv = document.createElement('div');
             currentUserDiv.classList.add('user');
             currentUserDiv.classList.add(currentUser.isBot ? 'red' : 'green');
-
+            
             const currentIndicator = document.createElement('div');
             currentIndicator.classList.add('indicator');
             currentUserDiv.appendChild(currentIndicator);
-
+            
             const currentNameSpan = document.createElement('span');
             currentNameSpan.textContent = currentUser.username + ' (You)';
             currentUserDiv.appendChild(currentNameSpan);
-
+            
             usersDiv.appendChild(currentUserDiv);
         }
 
@@ -252,7 +168,6 @@
         function handleTouch() {
             const now = Date.now();
             currentUser.touchTimestamps.push(now);
-            currentUser.touchCount += 1;
             detectBot(currentUser);
             updateUserList();
 
@@ -276,12 +191,10 @@
                         username: username,
                         avatarUrl: "", // Could be set if available
                         isBot: false,
-                        touchTimestamps: [],
-                        touchCount: 0
+                        touchTimestamps: []
                     };
                 }
                 touchEvents[userId].touchTimestamps.push(timestamp);
-                touchEvents[userId].touchCount += 1;
                 detectBot(touchEvents[userId]);
                 updateUserList();
             }
@@ -289,6 +202,7 @@
 
         // Handle new peers
         room.onPeersChanged = (peers) => {
+            // Add new peers to touchEvents
             for (const clientId in peers) {
                 if (!touchEvents[clientId]) {
                     touchEvents[clientId] = {
@@ -296,8 +210,7 @@
                         username: peers[clientId].username,
                         avatarUrl: peers[clientId].avatarUrl,
                         isBot: false,
-                        touchTimestamps: [],
-                        touchCount: 0
+                        touchTimestamps: []
                     };
                 }
             }
@@ -326,18 +239,19 @@
         // Sync store on new connection
         room.onConnected = () => {
             room.store.getAll().then(store => {
-                // Sync store data if needed
+                // Here you can sync store data if needed
             });
         };
 
-        // Periodically check for bot status and update chart
+        // Periodically check for bot status
         setInterval(() => {
             detectBot(currentUser);
+            updateUserList();
             for (const clientId in touchEvents) {
                 detectBot(touchEvents[clientId]);
             }
             updateUserList();
-        }, 1000);
+        }, 5000);
     </script>
 <script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
 </body>

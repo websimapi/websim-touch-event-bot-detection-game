@@ -209,7 +209,7 @@
             });
 
             // Store event in the room store
-            storeEvent(currentUser.id, now, x, y, currentUser.avatarUrl);
+            storeEvent(currentUser.id, now, x, y, currentUser.avatarUrl, currentUser.username);
         }
 
         function createAvatarIcon(x, y, user, timestamp) {
@@ -228,13 +228,13 @@
         }
 
         // Store event in the room store
-        function storeEvent(userId, timestamp, x, y, avatarUrl) {
+        function storeEvent(userId, timestamp, x, y, avatarUrl, username) {
             room.store.update({
                 id: "touchEvents",
-                dependencies: { userId, timestamp, x, y, avatarUrl, EVENT_RETENTION_PERIOD },
+                dependencies: { userId, timestamp, x, y, avatarUrl, username, EVENT_RETENTION_PERIOD },
                 updateFunction: (events) => {
                     if (!events) events = [];
-                    events.push({ userId, timestamp, x, y, avatarUrl });
+                    events.push({ userId, timestamp, x, y, avatarUrl, username });
                     // Keep only events from the last 24 hours
                     const cutoffTime = Date.now() - EVENT_RETENTION_PERIOD;
                     events = events.filter(event => event.timestamp > cutoffTime);
@@ -250,7 +250,7 @@
                     touchArea.innerHTML = ''; // Clear existing icons
                     events.forEach(event => {
                         createAvatarIcon(event.x, event.y, {
-                            username: touchEvents[event.userId]?.username || 'Unknown',
+                            username: event.username || 'Unknown',
                             avatarUrl: event.avatarUrl,
                             isBot: touchEvents[event.userId]?.isBot || false
                         }, event.timestamp);
@@ -277,7 +277,7 @@
                 detectBot(touchEvents[userId]);
                 updateUserList();
                 createAvatarIcon(x, y, touchEvents[userId], timestamp);
-                storeEvent(userId, timestamp, x, y, avatarUrl);
+                storeEvent(userId, timestamp, x, y, avatarUrl, username);
             }
         };
 
